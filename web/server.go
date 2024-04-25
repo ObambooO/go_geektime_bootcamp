@@ -1,0 +1,59 @@
+package web
+
+import (
+	"net"
+	"net/http"
+)
+
+type HandleFunc func()
+
+// 确保HttpServer实现了Server接口
+var _ Server = &HttpServer{}
+
+type Server interface {
+	// 实现2
+	// Start()
+
+	http.Handler
+	Start(address string) error
+
+	// AddRoute 路由注册功能
+	/**
+	 * method 是http方法
+	 * path是路由
+	 * handleFunc是业务逻辑
+	 */
+	AddRoute(method string, path string, handleFunc HandleFunc)
+}
+
+//type HttpsServer struct {
+//	HttpServer
+//}
+
+type HttpServer struct {
+	// addr string // 创建的时候传递，而不是在Start的时候进行传递
+}
+
+// AddRoute 路由注册功能
+func (h *HttpServer) AddRoute(method string, path string, handleFunc HandleFunc) {
+	//TODO implement me
+	panic("implement me")
+}
+
+// ServeHTTP 处理请求的入口
+func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (h *HttpServer) Start(address string) error {
+	l, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+	// 在这里，可以让用户注册所谓的after start回调
+	// 比如在这里往admin注册自己的这个实例
+	// 在这里执行一些业务所需的前置条件
+
+	return http.Serve(l, h)
+}
