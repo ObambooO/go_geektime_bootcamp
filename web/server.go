@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-type HandleFunc func()
+type HandleFunc func(ctx Context)
 
 // 确保HttpServer实现了Server接口
 var _ Server = &HttpServer{}
@@ -24,6 +24,9 @@ type Server interface {
 	 * handleFunc是业务逻辑
 	 */
 	AddRoute(method string, path string, handleFunc HandleFunc)
+
+	// AddRoute1 注册多个路由
+	//AddRoute1(method string, path string, handleFunc ...HandleFunc)
 }
 
 //type HttpsServer struct {
@@ -34,10 +37,37 @@ type HttpServer struct {
 	// addr string // 创建的时候传递，而不是在Start的时候进行传递
 }
 
+//func (h *HttpServer) AddRoute1(method string, path string, handleFunc ...HandleFunc) {
+//	//TODO implement me
+//	panic("implement me")
+//}
+
 // AddRoute 路由注册功能
+/**
+ * method http方法
+ * path 路由
+ * handleFunc 业务逻辑
+ */
 func (h *HttpServer) AddRoute(method string, path string, handleFunc HandleFunc) {
 	//TODO implement me
 	panic("implement me")
+}
+
+// Get get路由方法
+func (h *HttpServer) Get(path string, handleFunc HandleFunc) {
+	h.AddRoute(http.MethodGet, path, handleFunc)
+}
+
+func (h *HttpServer) Post(path string, handleFunc HandleFunc) {
+	h.AddRoute(http.MethodPost, path, handleFunc)
+}
+
+func (h *HttpServer) Put(path string, handleFunc HandleFunc) {
+	h.AddRoute(http.MethodPut, path, handleFunc)
+}
+
+func (h *HttpServer) Delete(path string, handleFunc HandleFunc) {
+	h.AddRoute(http.MethodDelete, path, handleFunc)
 }
 
 // ServeHTTP 处理请求的入口
