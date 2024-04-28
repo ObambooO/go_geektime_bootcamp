@@ -50,7 +50,7 @@ type HttpServer struct {
  */
 func (h *HttpServer) AddRoute(method string, path string, handleFunc HandleFunc) {
 	//TODO implement me
-	panic("implement me")
+	//panic("implement me")
 }
 
 // Get get路由方法
@@ -72,8 +72,17 @@ func (h *HttpServer) Delete(path string, handleFunc HandleFunc) {
 
 // ServeHTTP 处理请求的入口
 func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	//TODO implement me
-	panic("implement me")
+	// 框架代码在这里
+	ctx := &Context{
+		Req:  request,
+		Resp: writer,
+	}
+	// 查找路由，并且执行命中的业务逻辑
+	h.serve(ctx)
+}
+
+func (h *HttpServer) serve(ctx *Context) {
+	// 接下来是查找路由，并且执行命中的业务逻辑
 }
 
 func (h *HttpServer) Start(address string) error {
