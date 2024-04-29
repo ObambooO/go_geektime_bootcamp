@@ -23,7 +23,7 @@ type Server interface {
 	 * path是路由
 	 * handleFunc是业务逻辑
 	 */
-	AddRoute(method string, path string, handleFunc HandleFunc)
+	//AddRoute(method string, path string, handleFunc HandleFunc)
 
 	// AddRoute1 注册多个路由
 	//AddRoute1(method string, path string, handleFunc ...HandleFunc)
@@ -35,6 +35,14 @@ type Server interface {
 
 type HttpServer struct {
 	// addr string // 创建的时候传递，而不是在Start的时候进行传递
+
+	*Router
+}
+
+func NewHttpServer() *HttpServer {
+	return &HttpServer{
+		Router: newRouter(),
+	}
 }
 
 //func (h *HttpServer) AddRoute1(method string, path string, handleFunc ...HandleFunc) {
@@ -48,10 +56,10 @@ type HttpServer struct {
  * path 路由
  * handleFunc 业务逻辑
  */
-func (h *HttpServer) AddRoute(method string, path string, handleFunc HandleFunc) {
-	//TODO implement me
-	//panic("implement me")
-}
+//func (h *HttpServer) AddRoute(method string, path string, handleFunc HandleFunc) {
+//	//TODO implement me
+//	//panic("implement me")
+//}
 
 // Get get路由方法
 func (h *HttpServer) Get(path string, handleFunc HandleFunc) {
