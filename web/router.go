@@ -14,7 +14,7 @@ func newRouter() *Router {
 	}
 }
 
-func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
+func (r *Router) AddRoute(method, path string, handleFunc HandleFunc) {
 	// 首先找到树
 	root, ok := r.trees[method]
 
@@ -26,14 +26,17 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 		r.trees[method] = root
 	}
 
+	// 去除最前面的/
+	path = path[1:]
 	// 切割path
 	segments := strings.Split(path, "/")
 	for _, segment := range segments {
 		// 递归下去找准位置
 		// 如果中途有节点不存在，则创建节点
-		children, ok := root.childOf(segment)
-
+		children := root.childOrCreate(segment)
+		root = children
 	}
+	root.handleFunc = handleFunc
 }
 
 type node struct {
@@ -46,6 +49,17 @@ type node struct {
 }
 
 // childOf 返回segment对应的子节点，第一个值返回正确的子节点，第二个
-func (n *node) childOf(segment string) (*node, bool) {
-
+func (n *node) childOrCreate(segment string) *node {
+	if n.children == nil {
+		n.children = map[string]*node{}
+	}
+	res, ok := n.children[segment]
+	if !ok {
+		// 新建一个
+		res = &node{
+			path: segment,
+		}
+		n.children[segment] = res
+	}
+	return res
 }

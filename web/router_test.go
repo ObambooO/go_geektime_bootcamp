@@ -24,7 +24,7 @@ func TestRouter_AddRoute(t *testing.T) {
 	var mockHandler HandleFunc = func(ctx Context) {}
 	r := newRouter()
 	for _, route := range testRoutes {
-		r.addRoute(route.method, route.path, mockHandler)
+		r.AddRoute(route.method, route.path, mockHandler)
 	}
 
 	// 断言路由树和预期的一致
