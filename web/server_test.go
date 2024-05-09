@@ -9,7 +9,7 @@ import (
 func TestServer(t *testing.T) {
 	//var h Server = &HttpServer{}
 	h := &HttpServer{}
-	h.AddRoute(http.MethodGet, "/user", func(ctx Context) {
+	h.addRoute(http.MethodGet, "/user", func(ctx Context) {
 		fmt.Println("我是第一个方法")
 		fmt.Println("我是第二个方法")
 	})

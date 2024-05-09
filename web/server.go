@@ -17,13 +17,13 @@ type Server interface {
 	http.Handler
 	Start(address string) error
 
-	// AddRoute 路由注册功能
+	// addRoute 路由注册功能
 	/**
 	 * method 是http方法
 	 * path是路由
 	 * handleFunc是业务逻辑
 	 */
-	//AddRoute(method string, path string, handleFunc HandleFunc)
+	//addRoute(method string, path string, handleFunc HandleFunc)
 
 	// AddRoute1 注册多个路由
 	//AddRoute1(method string, path string, handleFunc ...HandleFunc)
@@ -50,32 +50,32 @@ func NewHttpServer() *HttpServer {
 //	panic("implement me")
 //}
 
-// AddRoute 路由注册功能
+// addRoute 路由注册功能
 /**
  * method http方法
  * path 路由
  * handleFunc 业务逻辑
  */
-//func (h *HttpServer) AddRoute(method string, path string, handleFunc HandleFunc) {
+//func (h *HttpServer) addRoute(method string, path string, handleFunc HandleFunc) {
 //	//TODO implement me
 //	//panic("implement me")
 //}
 
 // Get get路由方法
 func (h *HttpServer) Get(path string, handleFunc HandleFunc) {
-	h.AddRoute(http.MethodGet, path, handleFunc)
+	h.addRoute(http.MethodGet, path, handleFunc)
 }
 
 func (h *HttpServer) Post(path string, handleFunc HandleFunc) {
-	h.AddRoute(http.MethodPost, path, handleFunc)
+	h.addRoute(http.MethodPost, path, handleFunc)
 }
 
 func (h *HttpServer) Put(path string, handleFunc HandleFunc) {
-	h.AddRoute(http.MethodPut, path, handleFunc)
+	h.addRoute(http.MethodPut, path, handleFunc)
 }
 
 func (h *HttpServer) Delete(path string, handleFunc HandleFunc) {
-	h.AddRoute(http.MethodDelete, path, handleFunc)
+	h.addRoute(http.MethodDelete, path, handleFunc)
 }
 
 // ServeHTTP 处理请求的入口

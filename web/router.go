@@ -1,6 +1,9 @@
 package web
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Router 用来支持路由树的操作
 type Router struct {
@@ -14,7 +17,12 @@ func newRouter() *Router {
 	}
 }
 
-func (r *Router) AddRoute(method, path string, handleFunc HandleFunc) {
+// addRoute path必须以/开头，不能以/结尾，中间也不能有连续的//
+func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
+	if path == "" {
+		panic("路径不能为空字符串")
+	}
+
 	// 首先找到树
 	root, ok := r.trees[method]
 
@@ -25,16 +33,39 @@ func (r *Router) AddRoute(method, path string, handleFunc HandleFunc) {
 		}
 		r.trees[method] = root
 	}
+	// 开头不能没有/
+	if path[0] != '/' {
+		panic("路径必须以/开头")
+	}
+
+	if path == "/" {
+		if root.handleFunc != nil {
+			panic("路由冲突，重复注册[/]")
+		}
+		root.handleFunc = handleFunc
+		return
+	}
+
+	// 结尾
+	if path[len(path)-1] == '/' {
+		panic("路径不能以/结尾")
+	}
 
 	// 去除最前面的/
 	path = path[1:]
 	// 切割path
 	segments := strings.Split(path, "/")
 	for _, segment := range segments {
+		if segment == "" {
+			panic("不能有连续的//")
+		}
 		// 递归下去找准位置
 		// 如果中途有节点不存在，则创建节点
 		children := root.childOrCreate(segment)
 		root = children
+	}
+	if root.handleFunc != nil {
+		panic(fmt.Sprintf("路由冲突，重复注册[%s]", path))
 	}
 	root.handleFunc = handleFunc
 }
