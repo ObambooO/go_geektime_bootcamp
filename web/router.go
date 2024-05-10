@@ -11,8 +11,8 @@ type Router struct {
 	trees map[string]*node
 }
 
-func newRouter() *Router {
-	return &Router{
+func newRouter() Router {
+	return Router{
 		trees: make(map[string]*node),
 	}
 }
@@ -93,4 +93,39 @@ func (n *node) childOrCreate(segment string) *node {
 		n.children[segment] = res
 	}
 	return res
+}
+
+func (n *node) childOf(path string) (*node, bool) {
+	if n.children == nil {
+		return nil, false
+	}
+	child, ok := n.children[path]
+	return child, ok
+}
+
+func (r *Router) findRoute(method string, path string) (*node, bool) {
+	// 基本上是沿着树深度遍历
+	root, ok := r.trees[method]
+
+	if !ok {
+		return nil, false
+	}
+
+	if path == "/" {
+		return root, true
+	}
+
+	// 把前置和后置的/都去掉
+	path = strings.Trim(path, "/")
+	segments := strings.Split(path, "/")
+	for _, segment := range segments {
+		child, found := root.childOf(segment)
+		if !found {
+			return nil, false
+		}
+		root = child
+	}
+	// 代表有节点，且节点有注册handler，写true则不一定有
+	//return root, root.handleFunc != nil
+	return root, true
 }

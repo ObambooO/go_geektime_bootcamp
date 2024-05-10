@@ -47,7 +47,7 @@ func TestRouter_AddRoute(t *testing.T) {
 		//},
 	}
 
-	var mockHandler HandleFunc = func(ctx Context) {}
+	var mockHandler HandleFunc = func(ctx *Context) {}
 	r := newRouter()
 	for _, route := range testRoutes {
 		r.addRoute(route.method, route.path, mockHandler)
@@ -99,7 +99,7 @@ func TestRouter_AddRoute(t *testing.T) {
 		},
 	}
 
-	msg, ok := wantRouter.equal(r)
+	msg, ok := wantRouter.equal(&r)
 	assert.True(t, ok, msg)
 
 	r = newRouter()
@@ -178,4 +178,134 @@ func (n *node) equal(y *node) (string, bool) {
 	}
 
 	return "", true
+}
+
+func TestRouter_findRoute(t *testing.T) {
+	testRoutes := []struct {
+		method string
+		path   string
+	}{
+		{
+			method: http.MethodGet,
+			path:   "/",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/user",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/user/home",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/order/detail",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/user",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/user/account",
+		},
+		{
+			method: http.MethodDelete,
+			path:   "/order/detail",
+		},
+		{
+			method: http.MethodDelete,
+			path:   "/",
+		},
+	}
+
+	r := newRouter()
+	var mockHandler HandleFunc = func(ctx *Context) {}
+	for _, route := range testRoutes {
+		r.addRoute(route.method, route.path, mockHandler)
+	}
+
+	testCases := []struct {
+		name      string
+		method    string
+		path      string
+		wantFound bool
+		wantNode  *node
+	}{
+		{
+			// 根节点
+			name:      "root",
+			method:    http.MethodDelete,
+			path:      "/",
+			wantFound: true,
+			wantNode: &node{
+				handleFunc: mockHandler,
+				path:       "/",
+				children: map[string]*node{
+					"order": &node{
+						path: "order",
+						children: map[string]*node{
+							"detail": &node{
+								handleFunc: mockHandler,
+								path:       "detail",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			// 方法都不存在
+			name:      "method no found",
+			method:    http.MethodConnect,
+			path:      "/order/detail",
+			wantFound: false,
+			wantNode: &node{
+				handleFunc: mockHandler,
+				path:       "detail",
+			},
+		},
+		{
+			// 完全命中
+			name:      "order detail",
+			method:    http.MethodGet,
+			path:      "/order/detail",
+			wantFound: true,
+			wantNode: &node{
+				handleFunc: mockHandler,
+				path:       "detail",
+			},
+		},
+		{
+			// 命中但没有handler
+			name:   "order detail",
+			method: http.MethodGet,
+			path:   "/order",
+			// 这里true随方法里面的root, true后面而变更
+			wantFound: true,
+			wantNode: &node{
+				//handleFunc: mockHandler,
+				path: "order",
+				children: map[string]*node{
+					"detail": &node{
+						handleFunc: mockHandler,
+						path:       "detail",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			n, found := r.findRoute(tc.method, tc.path)
+			assert.Equal(t, tc.wantFound, found)
+			if !found {
+				return
+			}
+			msg, ok := tc.wantNode.equal(n)
+			assert.True(t, ok, msg)
+		})
+
+	}
 }

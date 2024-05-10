@@ -1,3 +1,5 @@
+//go:build e2e
+
 package web
 
 import (
@@ -8,14 +10,18 @@ import (
 
 func TestServer(t *testing.T) {
 	//var h Server = &HttpServer{}
-	h := &HttpServer{}
-	h.addRoute(http.MethodGet, "/user", func(ctx Context) {
+	h := NewHttpServer()
+	h.addRoute(http.MethodGet, "/user", func(ctx *Context) {
 		fmt.Println("我是第一个方法")
 		fmt.Println("我是第二个方法")
 	})
 
-	h.Get("/user2", func(ctx Context) {
+	h.Get("/user2", func(ctx *Context) {
 		fmt.Println("这是get方法")
+	})
+
+	h.addRoute(http.MethodGet, "/order/detail", func(ctx *Context) {
+		ctx.Resp.Write([]byte("hello, order detail"))
 	})
 
 	// 注册多个不需要去管，让用户自己去处理
