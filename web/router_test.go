@@ -32,12 +32,32 @@ func TestRouter_AddRoute(t *testing.T) {
 			path:   "/order/detail",
 		},
 		{
+			method: http.MethodGet,
+			path:   "/order/*",
+		},
+		{
 			method: http.MethodPost,
 			path:   "/user",
 		},
 		{
 			method: http.MethodPost,
 			path:   "/user/account",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/*",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/*/*",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/*/abc",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/*/abc/*",
 		},
 		// 目前暴力切无法处理下面的情况，需要校验
 		//{
@@ -75,6 +95,22 @@ func TestRouter_AddRoute(t *testing.T) {
 						children: map[string]*node{
 							"detail": &node{
 								path:       "detail",
+								handleFunc: mockHandler,
+							},
+						},
+						startChild: &node{
+							path:       "*",
+							handleFunc: mockHandler,
+						},
+					},
+				},
+				startChild: &node{
+					path: "*",
+					children: map[string]*node{
+						"abc": &node{
+							path: "abc",
+							startChild: &node{
+								path:       "*",
 								handleFunc: mockHandler,
 							},
 						},
@@ -159,6 +195,13 @@ func (n *node) equal(y *node) (string, bool) {
 		return fmt.Sprintf("子节点数量不相等"), false
 	}
 
+	if n.startChild != nil {
+		msg, ok := n.startChild.equal(y.startChild)
+		if !ok {
+			return msg, ok
+		}
+	}
+
 	// 比较handler，reflect.ValueOf反射
 	nHandler := reflect.ValueOf(n.handleFunc)
 	yHandler := reflect.ValueOf(y.handleFunc)
@@ -200,6 +243,10 @@ func TestRouter_findRoute(t *testing.T) {
 		{
 			method: http.MethodGet,
 			path:   "/order/detail",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/order/*",
 		},
 		{
 			method: http.MethodPost,
@@ -251,6 +298,10 @@ func TestRouter_findRoute(t *testing.T) {
 							},
 						},
 					},
+				},
+				startChild: &node{
+					path:       "*",
+					handleFunc: mockHandler,
 				},
 			},
 		},

@@ -77,10 +77,20 @@ type node struct {
 	path string
 	// handleFunc 处理函数
 	handleFunc HandleFunc
+
+	// 通配符匹配
+	startChild *node
 }
 
 // childOf 返回segment对应的子节点，第一个值返回正确的子节点，第二个
 func (n *node) childOrCreate(segment string) *node {
+	// 检验有没有重复注册
+	if segment == "*" {
+		n.startChild = &node{
+			path: segment,
+		}
+		return n.startChild
+	}
 	if n.children == nil {
 		n.children = map[string]*node{}
 	}
