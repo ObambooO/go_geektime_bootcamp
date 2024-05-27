@@ -89,6 +89,10 @@ type node struct {
 func (n *node) childOrCreate(segment string) *node {
 
 	if segment[0] == ':' {
+		// 检测是否有同时注册路径参数和通配符
+		if n.startChild != nil {
+			panic("web: 不允许同时注册路径参数和通配符匹配，已有通配符匹配")
+		}
 		n.paramChild = &node{
 			path: segment,
 		}
@@ -97,6 +101,9 @@ func (n *node) childOrCreate(segment string) *node {
 
 	// 检验有没有重复注册
 	if segment == "*" {
+		if n.paramChild != nil {
+			panic("web: 不允许同时注册路径参数和通配符匹配，已有路径参数")
+		}
 		n.startChild = &node{
 			path: segment,
 		}

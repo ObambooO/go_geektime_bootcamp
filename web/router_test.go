@@ -175,6 +175,18 @@ func TestRouter_AddRoute(t *testing.T) {
 	// 校验method方法，可将addRoute方法改成私有的避免
 	// 校验mockHandler是否为nil，传nil相当于没注册，不需要校验
 	//r.addRoute("aaa", "/a/b/c", mockHandler)
+
+	r = newRouter()
+	r.addRoute(http.MethodGet, "/a/*", mockHandler)
+	assert.Panicsf(t, func() {
+		r.addRoute(http.MethodGet, "/a/:id", nil)
+	}, "web: 路由冲突，同时存在通配符和路径参数，已有通配符匹配")
+
+	r = newRouter()
+	r.addRoute(http.MethodGet, "/a/:id", mockHandler)
+	assert.Panicsf(t, func() {
+		r.addRoute(http.MethodGet, "/a/*", nil)
+	}, "web: 路由冲突，同时存在通配符和路径参数，已有参数匹配")
 }
 
 // 返回string是为了返回错误信息，帮助我们排查问题
