@@ -36,6 +36,10 @@ func TestRouter_AddRoute(t *testing.T) {
 			path:   "/order/*",
 		},
 		{
+			method: http.MethodGet,
+			path:   "/order/detail/:id",
+		},
+		{
 			method: http.MethodPost,
 			path:   "/user",
 		},
@@ -96,6 +100,10 @@ func TestRouter_AddRoute(t *testing.T) {
 							"detail": &node{
 								path:       "detail",
 								handleFunc: mockHandler,
+								paramChild: &node{
+									path:       ":id",
+									handleFunc: mockHandler,
+								},
 							},
 						},
 						startChild: &node{
@@ -202,6 +210,13 @@ func (n *node) equal(y *node) (string, bool) {
 		}
 	}
 
+	if n.paramChild != nil {
+		msg, ok := n.paramChild.equal(y.paramChild)
+		if !ok {
+			return msg, ok
+		}
+	}
+
 	// 比较handler，reflect.ValueOf反射
 	nHandler := reflect.ValueOf(n.handleFunc)
 	yHandler := reflect.ValueOf(y.handleFunc)
@@ -263,6 +278,10 @@ func TestRouter_findRoute(t *testing.T) {
 		{
 			method: http.MethodDelete,
 			path:   "/",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/login/:username",
 		},
 	}
 
@@ -351,8 +370,20 @@ func TestRouter_findRoute(t *testing.T) {
 					"detail": &node{
 						handleFunc: mockHandler,
 						path:       "detail",
+						paramChild: &node{},
 					},
 				},
+			},
+		},
+		{
+			// username路径参数匹配
+			name:      "login username",
+			method:    http.MethodPost,
+			path:      "/login/熊二",
+			wantFound: true,
+			wantNode: &node{
+				path:       ":username",
+				handleFunc: mockHandler,
 			},
 		},
 	}

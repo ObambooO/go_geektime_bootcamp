@@ -80,10 +80,21 @@ type node struct {
 
 	// 通配符匹配
 	startChild *node
+
+	// 路径参数匹配
+	paramChild *node
 }
 
 // childOf 返回segment对应的子节点，第一个值返回正确的子节点，第二个
 func (n *node) childOrCreate(segment string) *node {
+
+	if segment[0] == ':' {
+		n.paramChild = &node{
+			path: segment,
+		}
+		return n.paramChild
+	}
+
 	// 检验有没有重复注册
 	if segment == "*" {
 		n.startChild = &node{
@@ -108,10 +119,16 @@ func (n *node) childOrCreate(segment string) *node {
 // childOf 优先考虑静态匹配，匹配不上，再考虑通配符匹配
 func (n *node) childOf(path string) (*node, bool) {
 	if n.children == nil {
+		if n.paramChild != nil {
+			return n.paramChild, true
+		}
 		return n.startChild, n.startChild != nil
 	}
 	child, ok := n.children[path]
 	if !ok {
+		if n.paramChild != nil {
+			return n.paramChild, true
+		}
 		return n.startChild, n.startChild != nil
 	}
 	return child, ok
