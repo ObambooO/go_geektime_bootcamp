@@ -20,8 +20,12 @@ func TestServer(t *testing.T) {
 		fmt.Println("这是get方法")
 	})
 
-	h.addRoute(http.MethodGet, "/order/detail", func(ctx *Context) {
+	h.Get("/order/detail", func(ctx *Context) {
 		ctx.Resp.Write([]byte("hello, order detail"))
+	})
+
+	h.Get("/order/abc", func(ctx *Context) {
+		ctx.Resp.Write([]byte(fmt.Sprintf("hello, %s", ctx.Req.URL.Path)))
 	})
 
 	// 注册多个不需要去管，让用户自己去处理

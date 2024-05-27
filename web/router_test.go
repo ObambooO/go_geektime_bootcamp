@@ -328,8 +328,18 @@ func TestRouter_findRoute(t *testing.T) {
 			},
 		},
 		{
+			name:      "order start",
+			method:    http.MethodGet,
+			path:      "/order/abc",
+			wantFound: true,
+			wantNode: &node{
+				handleFunc: mockHandler,
+				path:       "*",
+			},
+		},
+		{
 			// 命中但没有handler
-			name:   "order detail",
+			name:   "order",
 			method: http.MethodGet,
 			path:   "/order",
 			// 这里true随方法里面的root, true后面而变更
