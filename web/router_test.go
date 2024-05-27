@@ -295,6 +295,10 @@ func TestRouter_findRoute(t *testing.T) {
 			method: http.MethodPost,
 			path:   "/login/:username",
 		},
+		{
+			method: http.MethodDelete,
+			path:   "/*",
+		},
 	}
 
 	r := newRouter()
@@ -308,7 +312,7 @@ func TestRouter_findRoute(t *testing.T) {
 		method    string
 		path      string
 		wantFound bool
-		wantNode  *node
+		matchInfo *matchInfo
 	}{
 		{
 			// 根节点
@@ -316,23 +320,25 @@ func TestRouter_findRoute(t *testing.T) {
 			method:    http.MethodDelete,
 			path:      "/",
 			wantFound: true,
-			wantNode: &node{
-				handleFunc: mockHandler,
-				path:       "/",
-				children: map[string]*node{
-					"order": &node{
-						path: "order",
-						children: map[string]*node{
-							"detail": &node{
-								handleFunc: mockHandler,
-								path:       "detail",
+			matchInfo: &matchInfo{
+				n: &node{
+					handleFunc: mockHandler,
+					path:       "/",
+					children: map[string]*node{
+						"order": &node{
+							path: "order",
+							children: map[string]*node{
+								"detail": &node{
+									handleFunc: mockHandler,
+									path:       "detail",
+								},
 							},
 						},
 					},
-				},
-				startChild: &node{
-					path:       "*",
-					handleFunc: mockHandler,
+					startChild: &node{
+						path:       "*",
+						handleFunc: mockHandler,
+					},
 				},
 			},
 		},
@@ -342,9 +348,11 @@ func TestRouter_findRoute(t *testing.T) {
 			method:    http.MethodConnect,
 			path:      "/order/detail",
 			wantFound: false,
-			wantNode: &node{
-				handleFunc: mockHandler,
-				path:       "detail",
+			matchInfo: &matchInfo{
+				n: &node{
+					handleFunc: mockHandler,
+					path:       "detail",
+				},
 			},
 		},
 		{
@@ -353,9 +361,11 @@ func TestRouter_findRoute(t *testing.T) {
 			method:    http.MethodGet,
 			path:      "/order/detail",
 			wantFound: true,
-			wantNode: &node{
-				handleFunc: mockHandler,
-				path:       "detail",
+			matchInfo: &matchInfo{
+				n: &node{
+					handleFunc: mockHandler,
+					path:       "detail",
+				},
 			},
 		},
 		{
@@ -363,9 +373,11 @@ func TestRouter_findRoute(t *testing.T) {
 			method:    http.MethodGet,
 			path:      "/order/abc",
 			wantFound: true,
-			wantNode: &node{
-				handleFunc: mockHandler,
-				path:       "*",
+			matchInfo: &matchInfo{
+				n: &node{
+					handleFunc: mockHandler,
+					path:       "*",
+				},
 			},
 		},
 		{
@@ -375,14 +387,16 @@ func TestRouter_findRoute(t *testing.T) {
 			path:   "/order",
 			// 这里true随方法里面的root, true后面而变更
 			wantFound: true,
-			wantNode: &node{
-				//handleFunc: mockHandler,
-				path: "order",
-				children: map[string]*node{
-					"detail": &node{
-						handleFunc: mockHandler,
-						path:       "detail",
-						paramChild: &node{},
+			matchInfo: &matchInfo{
+				n: &node{
+					//handleFunc: mockHandler,
+					path: "order",
+					children: map[string]*node{
+						"detail": &node{
+							handleFunc: mockHandler,
+							path:       "detail",
+							paramChild: &node{},
+						},
 					},
 				},
 			},
@@ -393,21 +407,27 @@ func TestRouter_findRoute(t *testing.T) {
 			method:    http.MethodPost,
 			path:      "/login/熊二",
 			wantFound: true,
-			wantNode: &node{
-				path:       ":username",
-				handleFunc: mockHandler,
+			matchInfo: &matchInfo{
+				n: &node{
+					path:       ":username",
+					handleFunc: mockHandler,
+				},
+				pathParams: map[string]string{
+					"username": "熊二",
+				},
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			n, found := r.findRoute(tc.method, tc.path)
+			info, found := r.findRoute(tc.method, tc.path)
 			assert.Equal(t, tc.wantFound, found)
 			if !found {
 				return
 			}
-			msg, ok := tc.wantNode.equal(n)
+			assert.Equal(t, tc.matchInfo.pathParams, info.pathParams)
+			msg, ok := tc.matchInfo.n.equal(info.n)
 			assert.True(t, ok, msg)
 		})
 

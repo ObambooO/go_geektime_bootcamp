@@ -124,24 +124,25 @@ func (n *node) childOrCreate(segment string) *node {
 }
 
 // childOf 优先考虑静态匹配，匹配不上，再考虑通配符匹配
-func (n *node) childOf(path string) (*node, bool) {
+// 第一个返回值是子节点，第二个是标记是否为路径参数，第三个标记命中了没有
+func (n *node) childOf(path string) (*node, bool, bool) {
 	if n.children == nil {
 		if n.paramChild != nil {
-			return n.paramChild, true
+			return n.paramChild, true, true
 		}
-		return n.startChild, n.startChild != nil
+		return n.startChild, false, n.startChild != nil
 	}
 	child, ok := n.children[path]
 	if !ok {
 		if n.paramChild != nil {
-			return n.paramChild, true
+			return n.paramChild, true, true
 		}
-		return n.startChild, n.startChild != nil
+		return n.startChild, false, n.startChild != nil
 	}
-	return child, ok
+	return child, false, ok
 }
 
-func (r *Router) findRoute(method string, path string) (*node, bool) {
+func (r *Router) findRoute(method string, path string) (*matchInfo, bool) {
 	// 基本上是沿着树深度遍历
 	root, ok := r.trees[method]
 
@@ -150,20 +151,40 @@ func (r *Router) findRoute(method string, path string) (*node, bool) {
 	}
 
 	if path == "/" {
-		return root, true
+		return &matchInfo{
+			n: root,
+		}, true
 	}
 
 	// 把前置和后置的/都去掉
 	path = strings.Trim(path, "/")
 	segments := strings.Split(path, "/")
+
+	var pathParams map[string]string
 	for _, segment := range segments {
-		child, found := root.childOf(segment)
+		child, paramChild, found := root.childOf(segment)
 		if !found {
 			return nil, false
+		}
+		// 命中了路径参数
+		if paramChild {
+			if pathParams == nil {
+				pathParams = make(map[string]string)
+			}
+			// path是 :id这种形式，需要把:去掉
+			pathParams[child.path[1:]] = segment
 		}
 		root = child
 	}
 	// 代表有节点，且节点有注册handler，写true则不一定有
 	//return root, root.handleFunc != nil
-	return root, true
+	return &matchInfo{
+		n:          root,
+		pathParams: pathParams,
+	}, true
+}
+
+type matchInfo struct {
+	n          *node
+	pathParams map[string]string
 }

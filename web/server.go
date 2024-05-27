@@ -91,17 +91,18 @@ func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request
 
 func (h *HttpServer) serve(ctx *Context) {
 	// 接下来是查找路由，并且执行命中的业务逻辑
-	n, ok := h.findRoute(ctx.Req.Method, ctx.Req.URL.Path)
+	info, ok := h.findRoute(ctx.Req.Method, ctx.Req.URL.Path)
 
-	if !ok || n.handleFunc == nil {
+	if !ok || info.n.handleFunc == nil {
 		// 路由没有命中
 		ctx.Resp.WriteHeader(404)
 		_, _ = ctx.Resp.Write([]byte("not found"))
 		return
 	}
 
+	ctx.PathParams = info.pathParams
 	// 命中的话，处理业务逻辑返回
-	n.handleFunc(ctx)
+	info.n.handleFunc(ctx)
 }
 
 func (h *HttpServer) Start(address string) error {
