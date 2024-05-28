@@ -299,6 +299,10 @@ func TestRouter_findRoute(t *testing.T) {
 			method: http.MethodDelete,
 			path:   "/*",
 		},
+		//{
+		//	method: http.MethodGet,
+		//	path:   "/order/detail/a/c/v/e",
+		//},
 	}
 
 	r := newRouter()
@@ -356,19 +360,6 @@ func TestRouter_findRoute(t *testing.T) {
 			},
 		},
 		{
-			// 完全命中
-			name:      "order detail",
-			method:    http.MethodGet,
-			path:      "/order/detail",
-			wantFound: true,
-			matchInfo: &matchInfo{
-				n: &node{
-					handleFunc: mockHandler,
-					path:       "detail",
-				},
-			},
-		},
-		{
 			name:      "order start",
 			method:    http.MethodGet,
 			path:      "/order/abc",
@@ -395,7 +386,6 @@ func TestRouter_findRoute(t *testing.T) {
 						"detail": &node{
 							handleFunc: mockHandler,
 							path:       "detail",
-							paramChild: &node{},
 						},
 					},
 				},
@@ -414,6 +404,33 @@ func TestRouter_findRoute(t *testing.T) {
 				},
 				pathParams: map[string]string{
 					"username": "熊二",
+				},
+			},
+		},
+		// 下面当同时存在通配符和路径参数时，如果/api/detail和/api/*，则/api/detail会被匹配，另一个不会匹配
+		{
+			// 通配符多行匹配
+			name:      "通配符多行匹配",
+			method:    http.MethodGet,
+			path:      "/order/a/v/c/e",
+			wantFound: true,
+			matchInfo: &matchInfo{
+				n: &node{
+					handleFunc: mockHandler,
+					path:       "*",
+				},
+			},
+		},
+		{
+			// 完全命中
+			name:      "order detail",
+			method:    http.MethodGet,
+			path:      "/order/detail",
+			wantFound: true,
+			matchInfo: &matchInfo{
+				n: &node{
+					handleFunc: mockHandler,
+					path:       "detail",
 				},
 			},
 		},

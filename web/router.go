@@ -85,7 +85,7 @@ type node struct {
 	paramChild *node
 }
 
-// childOf 返回segment对应的子节点，第一个值返回正确的子节点，第二个
+// childOrCreate 返回segment对应的子节点，第一个值返回正确的子节点，第二个
 func (n *node) childOrCreate(segment string) *node {
 
 	if segment[0] == ':' {
@@ -161,11 +161,16 @@ func (r *Router) findRoute(method string, path string) (*matchInfo, bool) {
 	segments := strings.Split(path, "/")
 
 	var pathParams map[string]string
+	var starMatchInfo *matchInfo
 	for _, segment := range segments {
 		child, paramChild, found := root.childOf(segment)
 		if !found {
+			if starMatchInfo != nil {
+				return starMatchInfo, true
+			}
 			return nil, false
 		}
+
 		// 命中了路径参数
 		if paramChild {
 			if pathParams == nil {
@@ -175,6 +180,13 @@ func (r *Router) findRoute(method string, path string) (*matchInfo, bool) {
 			pathParams[child.path[1:]] = segment
 		}
 		root = child
+		if child.path == "*" {
+			starMatchInfo = &matchInfo{
+				n:          child,
+				pathParams: pathParams,
+			}
+
+		}
 	}
 	// 代表有节点，且节点有注册handler，写true则不一定有
 	//return root, root.handleFunc != nil

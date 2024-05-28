@@ -28,6 +28,10 @@ func TestServer(t *testing.T) {
 		ctx.Resp.Write([]byte(fmt.Sprintf("hello, %s", ctx.Req.URL.Path)))
 	})
 
+	h.Get("/order/*", func(ctx *Context) {
+		ctx.Resp.Write([]byte("hello, order *"))
+	})
+
 	// 注册多个不需要去管，让用户自己去处理
 	//h.AddRoute1(http.MethodGet, "/user1", func(ctx Context) {
 	//	fmt.Println("我是第一个方法")
