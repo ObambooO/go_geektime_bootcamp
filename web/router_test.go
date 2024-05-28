@@ -434,6 +434,18 @@ func TestRouter_findRoute(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "通配符仅匹配一个",
+			method:    http.MethodGet,
+			path:      "/order/a",
+			wantFound: true,
+			matchInfo: &matchInfo{
+				n: &node{
+					handleFunc: mockHandler,
+					path:       "*",
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
