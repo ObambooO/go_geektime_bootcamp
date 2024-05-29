@@ -69,6 +69,10 @@ func TestRouter_AddRoute(t *testing.T) {
 		//	path:   "login",
 		////	path: "login/////",
 		//},
+		{
+			method: http.MethodGet,
+			path:   "/order/detail/:id(^[0-9]+$)",
+		},
 	}
 
 	var mockHandler HandleFunc = func(ctx *Context) {}
@@ -104,6 +108,7 @@ func TestRouter_AddRoute(t *testing.T) {
 									path:       ":id",
 									handleFunc: mockHandler,
 								},
+								regexpPath: "^[0-9]+$",
 							},
 						},
 						startChild: &node{

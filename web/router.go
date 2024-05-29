@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -53,6 +54,26 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 
 	// 去除最前面的/
 	path = path[1:]
+
+	stack := []rune{}
+	bracketMap := map[rune]rune{
+		')': '(',
+	}
+
+	// TODO 处理判定是否存在左右括号
+	for _, character := range path {
+		switch character {
+		case '(':
+			stack = append(stack, character)
+
+		case ')':
+			if len(stack) == 0 || stack[len(stack)-1] != bracketMap[character] {
+				panic("web: 存在不完整的括号信息")
+			}
+			stack = stack[:len(stack)-1]
+		}
+	}
+
 	// 切割path
 	segments := strings.Split(path, "/")
 	for _, segment := range segments {
@@ -83,6 +104,9 @@ type node struct {
 
 	// 路径参数匹配
 	paramChild *node
+
+	// 正则参数
+	regexpPath string
 }
 
 // childOrCreate 返回segment对应的子节点，第一个值返回正确的子节点，第二个
@@ -142,6 +166,7 @@ func (n *node) childOf(path string) (*node, bool, bool) {
 	return child, false, ok
 }
 
+// findRoute 查找路由
 func (r *Router) findRoute(method string, path string) (*matchInfo, bool) {
 	// 基本上是沿着树深度遍历
 	root, ok := r.trees[method]
@@ -199,4 +224,9 @@ func (r *Router) findRoute(method string, path string) (*matchInfo, bool) {
 type matchInfo struct {
 	n          *node
 	pathParams map[string]string
+}
+
+func checkRegex(params string) bool {
+	_, err := regexp.Compile(params)
+	return err == nil
 }
