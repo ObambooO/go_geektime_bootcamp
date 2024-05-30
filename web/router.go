@@ -55,27 +55,50 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 	// 去除最前面的/
 	path = path[1:]
 
-	stack := []rune{}
-	bracketMap := map[rune]rune{
-		')': '(',
-	}
+	// 使用栈校验是否存在不完整的括号信息
+	var stack []rune
+	// 存放正则表达式
+	var regexpPath []rune
 
-	// TODO 处理判定是否存在左右括号
+	segments := []string{""}
+	segmentIndex := 0
 	for _, character := range path {
-		switch character {
-		case '(':
-			stack = append(stack, character)
+		stackLength := len(stack)
+		if character == '/' {
+			if stackLength == 0 {
+				segmentIndex++
+				segments = append(segments, "")
+				_, err := regexp.Compile(string(regexpPath))
+				if err != nil {
+					panic("web: 正则表达式不合法")
+				}
+				regexpPath = []rune{}
+			}
+			if stackLength == 1 {
+				regexpPath = append(regexpPath, character)
+				segments[segmentIndex] += string(character)
+			}
 
-		case ')':
-			if len(stack) == 0 || stack[len(stack)-1] != bracketMap[character] {
+		} else {
+			segments[segmentIndex] += string(character)
+		}
+
+		if character == '(' {
+			stack = append(stack, character)
+		}
+		if character == ')' {
+			if stackLength == 0 || stack[stackLength-1] != '(' {
 				panic("web: 存在不完整的括号信息")
 			}
 			stack = stack[:len(stack)-1]
 		}
+
 	}
 
-	// 切割path
-	segments := strings.Split(path, "/")
+	if len(stack) != 0 {
+		panic("web：存在不完整的括号信息")
+	}
+
 	for _, segment := range segments {
 		if segment == "" {
 			panic("不能有连续的//")
@@ -117,8 +140,23 @@ func (n *node) childOrCreate(segment string) *node {
 		if n.startChild != nil {
 			panic("web: 不允许同时注册路径参数和通配符匹配，已有通配符匹配")
 		}
-		n.paramChild = &node{
-			path: segment,
+		// 当最后为)时，去掉
+		if strings.HasSuffix(segment, ")") {
+			subSegment := segment[:len(segment)-1]
+			subSegments := strings.Split(subSegment, "(")
+			n.paramChild = &node{
+				path: subSegments[0],
+			}
+			re := regexp.MustCompile(`\(([^()]+)\)`)
+			match := re.FindStringSubmatch(segment)
+			if match != nil && len(match) > 1 {
+				n.paramChild.regexpPath = match[1]
+			}
+
+		} else {
+			n.paramChild = &node{
+				path: segment,
+			}
 		}
 		return n.paramChild
 	}

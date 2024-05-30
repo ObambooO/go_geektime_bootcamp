@@ -73,6 +73,10 @@ func TestRouter_AddRoute(t *testing.T) {
 			method: http.MethodGet,
 			path:   "/order/detail/:id(^[0-9]+$)",
 		},
+		{
+			method: http.MethodGet,
+			path:   "/order/detail/:id(^[0-9]+$)/:name",
+		},
 	}
 
 	var mockHandler HandleFunc = func(ctx *Context) {}
@@ -107,8 +111,12 @@ func TestRouter_AddRoute(t *testing.T) {
 								paramChild: &node{
 									path:       ":id",
 									handleFunc: mockHandler,
+									regexpPath: "^[0-9]+$",
+									paramChild: &node{
+										path:       ":name",
+										handleFunc: mockHandler,
+									},
 								},
-								regexpPath: "^[0-9]+$",
 							},
 						},
 						startChild: &node{
@@ -192,6 +200,11 @@ func TestRouter_AddRoute(t *testing.T) {
 	assert.Panicsf(t, func() {
 		r.addRoute(http.MethodGet, "/a/*", nil)
 	}, "web: 路由冲突，同时存在通配符和路径参数，已有参数匹配")
+
+	r = newRouter()
+	assert.Panicsf(t, func() {
+		r.addRoute(http.MethodGet, "/a/:id((", nil)
+	}, "web: 路由存在不完整的((括号信息")
 }
 
 // 返回string是为了返回错误信息，帮助我们排查问题
