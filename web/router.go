@@ -141,10 +141,12 @@ func (n *node) childOrCreate(segment string) *node {
 			panic("web: 不允许同时注册路径参数和通配符匹配，已有通配符匹配")
 		}
 
+		// 已存在paramChild节点时，直接返回
 		if n.paramChild != nil {
 			return n.paramChild
 		}
 
+		// 判定是否为正则，处理正则参数
 		// 当最后为)时，去掉
 		if strings.HasSuffix(segment, ")") {
 			subSegment := segment[:len(segment)-1]

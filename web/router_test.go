@@ -244,9 +244,10 @@ func (n *node) equal(y *node) (string, bool) {
 
 	if n.paramChild != nil {
 		msg, ok := n.paramChild.equal(y.paramChild)
-		if !ok && n.paramChild.regexpPath != y.paramChild.regexpPath {
+		if !ok {
 			return msg, ok
 		}
+		// 递归校验
 		if n.paramChild.paramChild != nil {
 			msg, ok := n.paramChild.paramChild.equal(y.paramChild.paramChild)
 			if !ok {
