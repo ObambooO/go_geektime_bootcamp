@@ -140,6 +140,11 @@ func (n *node) childOrCreate(segment string) *node {
 		if n.startChild != nil {
 			panic("web: 不允许同时注册路径参数和通配符匹配，已有通配符匹配")
 		}
+
+		if n.paramChild != nil {
+			return n.paramChild
+		}
+
 		// 当最后为)时，去掉
 		if strings.HasSuffix(segment, ")") {
 			subSegment := segment[:len(segment)-1]
@@ -147,12 +152,12 @@ func (n *node) childOrCreate(segment string) *node {
 			n.paramChild = &node{
 				path: subSegments[0],
 			}
+
 			re := regexp.MustCompile(`\(([^()]+)\)`)
 			match := re.FindStringSubmatch(segment)
 			if match != nil && len(match) > 1 {
 				n.paramChild.regexpPath = match[1]
 			}
-
 		} else {
 			n.paramChild = &node{
 				path: segment,

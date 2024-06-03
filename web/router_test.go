@@ -35,10 +35,11 @@ func TestRouter_AddRoute(t *testing.T) {
 			method: http.MethodGet,
 			path:   "/order/*",
 		},
-		{
-			method: http.MethodGet,
-			path:   "/order/detail/:id",
-		},
+		// 与正则冲突
+		//{
+		//	method: http.MethodGet,
+		//	path:   "/order/detail/:id",
+		//},
 		{
 			method: http.MethodPost,
 			path:   "/user",
@@ -75,7 +76,7 @@ func TestRouter_AddRoute(t *testing.T) {
 		},
 		{
 			method: http.MethodGet,
-			path:   "/order/detail/:id(^[0-9]+$)/:name",
+			path:   "/order/detail/:id(^[0-9]+$)/:name(^[a-zA-Z]+$)",
 		},
 	}
 
@@ -115,6 +116,7 @@ func TestRouter_AddRoute(t *testing.T) {
 									paramChild: &node{
 										path:       ":name",
 										handleFunc: mockHandler,
+										regexpPath: "^[a-zA-Z]+$",
 									},
 								},
 							},
@@ -242,9 +244,19 @@ func (n *node) equal(y *node) (string, bool) {
 
 	if n.paramChild != nil {
 		msg, ok := n.paramChild.equal(y.paramChild)
-		if !ok {
+		if !ok && n.paramChild.regexpPath != y.paramChild.regexpPath {
 			return msg, ok
 		}
+		if n.paramChild.paramChild != nil {
+			msg, ok := n.paramChild.paramChild.equal(y.paramChild.paramChild)
+			if !ok {
+				return msg, ok
+			}
+		}
+	}
+
+	if n.regexpPath != y.regexpPath {
+		return "正则表达式不相等", false
 	}
 
 	// 比较handler，reflect.ValueOf反射
