@@ -55,49 +55,7 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 	// 去除最前面的/
 	path = path[1:]
 
-	// 使用栈校验是否存在不完整的括号信息
-	var stack []rune
-	// 存放正则表达式
-	var regexpPath []rune
-
-	segments := []string{""}
-	segmentIndex := 0
-	for _, character := range path {
-		stackLength := len(stack)
-		if character == '/' {
-			if stackLength == 0 {
-				segmentIndex++
-				segments = append(segments, "")
-				_, err := regexp.Compile(string(regexpPath))
-				if err != nil {
-					panic("web: 正则表达式不合法")
-				}
-				regexpPath = []rune{}
-			}
-			if stackLength == 1 {
-				regexpPath = append(regexpPath, character)
-				segments[segmentIndex] += string(character)
-			}
-
-		} else {
-			segments[segmentIndex] += string(character)
-		}
-
-		if character == '(' {
-			stack = append(stack, character)
-		}
-		if character == ')' {
-			if stackLength == 0 || stack[stackLength-1] != '(' {
-				panic("web: 存在不完整的括号信息")
-			}
-			stack = stack[:len(stack)-1]
-		}
-
-	}
-
-	if len(stack) != 0 {
-		panic("web：存在不完整的括号信息")
-	}
+	segments := listSegments(path)
 
 	for _, segment := range segments {
 		if segment == "" {
@@ -228,7 +186,7 @@ func (r *Router) findRoute(method string, path string) (*matchInfo, bool) {
 
 	// 把前置和后置的/都去掉
 	path = strings.Trim(path, "/")
-	segments := strings.Split(path, "/")
+	segments := listSegments(path)
 
 	var pathParams map[string]string
 	var starMatchInfo *matchInfo
@@ -248,6 +206,14 @@ func (r *Router) findRoute(method string, path string) (*matchInfo, bool) {
 			}
 			// path是 :id这种形式，需要把:去掉
 			pathParams[child.path[1:]] = segment
+			// 当存在正则表达式时，校验数值是否满足正则表达式
+			if child.regexpPath != "" {
+				re := regexp.MustCompile(child.regexpPath)
+				match := re.FindStringSubmatch(segment)
+				if match == nil {
+					return nil, false
+				}
+			}
 		}
 		root = child
 		if child.path == "*" {
@@ -271,7 +237,50 @@ type matchInfo struct {
 	pathParams map[string]string
 }
 
-func checkRegex(params string) bool {
-	_, err := regexp.Compile(params)
-	return err == nil
+func listSegments(path string) []string {
+	// 使用栈校验是否存在不完整的括号信息
+	var stack []rune
+	// 存放正则表达式
+	var regexpPath []rune
+
+	segments := []string{""}
+	segmentIndex := 0
+	for _, character := range path {
+		stackLength := len(stack)
+		if character == '/' {
+			if stackLength == 0 {
+				segmentIndex++
+				segments = append(segments, "")
+				_, err := regexp.Compile(string(regexpPath))
+				if err != nil {
+					panic("web: 正则表达式不合法")
+				}
+				regexpPath = []rune{}
+			}
+			if stackLength == 1 {
+				regexpPath = append(regexpPath, character)
+				segments[segmentIndex] += string(character)
+			}
+
+		} else {
+			segments[segmentIndex] += string(character)
+		}
+
+		if character == '(' {
+			stack = append(stack, character)
+		}
+		if character == ')' {
+			if stackLength == 0 || stack[stackLength-1] != '(' {
+				panic("web: 存在不完整的括号信息")
+			}
+			stack = stack[:len(stack)-1]
+		}
+
+	}
+
+	if len(stack) != 0 {
+		panic("web：存在不完整的括号信息")
+	}
+
+	return segments
 }
