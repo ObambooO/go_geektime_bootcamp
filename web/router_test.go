@@ -338,6 +338,10 @@ func TestRouter_findRoute(t *testing.T) {
 			method: http.MethodGet,
 			path:   "/order/detail/:id(^[0-9]$+)",
 		},
+		{
+			method: http.MethodGet,
+			path:   "/order/detail/:id(^[0-9]$+)/name",
+		},
 	}
 
 	r := newRouter()
@@ -494,6 +498,12 @@ func TestRouter_findRoute(t *testing.T) {
 					handleFunc: mockHandler,
 					path:       ":id",
 					regexpPath: "^[0-9]$+",
+					children: map[string]*node{
+						"name": &node{
+							path:       "name",
+							handleFunc: mockHandler,
+						},
+					},
 				},
 			},
 		},
@@ -502,6 +512,22 @@ func TestRouter_findRoute(t *testing.T) {
 			method:    http.MethodGet,
 			path:      "/order/detail/ssss",
 			wantFound: false,
+		},
+		{
+			name:      "匹配更深一级",
+			method:    http.MethodGet,
+			path:      "/order/detail/1/name",
+			wantFound: true,
+			matchInfo: &matchInfo{
+				pathParams: map[string]string{
+					"id": "1",
+				},
+				n: &node{
+					handleFunc: mockHandler,
+					path:       "name",
+					regexpPath: "",
+				},
+			},
 		},
 	}
 
