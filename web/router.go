@@ -21,7 +21,7 @@ func newRouter() Router {
 // addRoute path必须以/开头，不能以/结尾，中间也不能有连续的//
 func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 	if path == "" {
-		panic("路径不能为空字符串")
+		panic("web: 路由是空字符串")
 	}
 
 	// 首先找到树
@@ -36,12 +36,12 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 	}
 	// 开头不能没有/
 	if path[0] != '/' {
-		panic("路径必须以/开头")
+		panic("web: 路由必须以 / 开头")
 	}
 
 	if path == "/" {
 		if root.handleFunc != nil {
-			panic("路由冲突，重复注册[/]")
+			panic("web: 路由冲突[/]")
 		}
 		root.handleFunc = handleFunc
 		return
@@ -49,28 +49,39 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 
 	// 结尾
 	if path[len(path)-1] == '/' {
-		panic("路径不能以/结尾")
+		panic("web: 路由不能以 / 结尾")
 	}
 
 	// 去除最前面的/
-	path = path[1:]
+	segments := strings.Split(path[1:], "/")
 
-	segments := listSegments(path)
+	//segments := listSegments(path)
 
 	for _, segment := range segments {
 		if segment == "" {
-			panic("不能有连续的//")
+			panic(fmt.Sprintf("web: 非法路由。不允许使用 //a/b, /a//b 之类的路由, [%s]", path))
 		}
-		// 递归下去找准位置
-		// 如果中途有节点不存在，则创建节点
-		children := root.childOrCreate(segment)
-		root = children
+		root = root.childOrCreate(segment)
 	}
 	if root.handleFunc != nil {
-		panic(fmt.Sprintf("路由冲突，重复注册[%s]", path))
+		panic(fmt.Sprintf("web: 路由冲突[%s]", path))
 	}
 	root.handleFunc = handleFunc
 }
+
+// 目的，为了通配符的匹配
+type nodeType int
+
+const (
+	// 静态路由
+	nodeTypeStatic = iota
+	// 正则路由
+	nodeTypeReg
+	// 路径参数路由
+	nodeTypeParam
+	// 通配符路由
+	nodeTypeAny
+)
 
 type node struct {
 	// children 子节点
@@ -81,61 +92,49 @@ type node struct {
 	handleFunc HandleFunc
 
 	// 通配符匹配
-	startChild *node
+	starChild *node
 
 	// 路径参数匹配
 	paramChild *node
+	// 正则路由和参数路由都会使用这个字段
+	paramName string
 
-	// 正则参数
-	regexpPath string
+	// 正则表达式
+	regChild *node
+	regExpr  *regexp.Regexp
+	typ      nodeType
 }
 
 // childOrCreate 返回segment对应的子节点，第一个值返回正确的子节点，第二个
 func (n *node) childOrCreate(segment string) *node {
 
-	if segment[0] == ':' {
-		// 检测是否有同时注册路径参数和通配符
-		if n.startChild != nil {
-			panic("web: 不允许同时注册路径参数和通配符匹配，已有通配符匹配")
-		}
-
-		// 已存在paramChild节点时，直接返回
-		if n.paramChild != nil {
-			return n.paramChild
-		}
-
-		// 判定是否为正则，处理正则参数
-		// 当最后为)时，去掉
-		if strings.HasSuffix(segment, ")") {
-			subSegment := segment[:len(segment)-1]
-			subSegments := strings.Split(subSegment, "(")
-			n.paramChild = &node{
-				path: subSegments[0],
-			}
-
-			re := regexp.MustCompile(`\(([^()]+)\)`)
-			match := re.FindStringSubmatch(segment)
-			if match != nil && len(match) > 1 {
-				n.paramChild.regexpPath = match[1]
-			}
-		} else {
-			n.paramChild = &node{
-				path: segment,
-			}
-		}
-		return n.paramChild
-	}
-
 	// 检验有没有重复注册
 	if segment == "*" {
 		if n.paramChild != nil {
-			panic("web: 不允许同时注册路径参数和通配符匹配，已有路径参数")
+			panic(fmt.Sprintf("web: 非法路由，已有路径参数路由。不允许同时注册通配符路由和参数路由 [%s]", segment))
 		}
-		n.startChild = &node{
-			path: segment,
+		if n.regChild != nil {
+			panic(fmt.Sprintf("web: 非法路由，已有正则路由。不允许同时注册通配符路由和正则路由 [%s]", segment))
 		}
-		return n.startChild
+		if n.starChild == nil {
+			n.starChild = &node{
+				path: segment,
+				typ:  nodeTypeAny,
+			}
+		}
+		return n.starChild
 	}
+
+	// 以：开头，需要进一步解析，判定是参数路由还是正则路由
+	if segment[0] == ':' {
+		paramName, expr, isReg := n.parseParam(segment)
+
+		if isReg {
+			return n.childOrCreateReg(segment, expr, paramName)
+		}
+		return n.childOrCreateParam(segment, paramName)
+	}
+
 	if n.children == nil {
 		n.children = map[string]*node{}
 	}
@@ -144,6 +143,7 @@ func (n *node) childOrCreate(segment string) *node {
 		// 新建一个
 		res = &node{
 			path: segment,
+			typ:  nodeTypeStatic,
 		}
 		n.children[segment] = res
 	}
@@ -151,22 +151,16 @@ func (n *node) childOrCreate(segment string) *node {
 }
 
 // childOf 优先考虑静态匹配，匹配不上，再考虑通配符匹配
-// 第一个返回值是子节点，第二个是标记是否为路径参数，第三个标记命中了没有
-func (n *node) childOf(path string) (*node, bool, bool) {
+// 第一个返回值是子节点，第二个是标记是否为路径参数
+func (n *node) childOf(path string) (*node, bool) {
 	if n.children == nil {
-		if n.paramChild != nil {
-			return n.paramChild, true, true
-		}
-		return n.startChild, false, n.startChild != nil
+		n.childOfNonStatic(path)
 	}
 	child, ok := n.children[path]
 	if !ok {
-		if n.paramChild != nil {
-			return n.paramChild, true, true
-		}
-		return n.startChild, false, n.startChild != nil
+		return n.childOfNonStatic(path)
 	}
-	return child, false, ok
+	return child, ok
 }
 
 // findRoute 查找路由
@@ -186,50 +180,29 @@ func (r *Router) findRoute(method string, path string) (*matchInfo, bool) {
 
 	// 把前置和后置的/都去掉
 	path = strings.Trim(path, "/")
-	segments := listSegments(path)
+	segments := strings.Split(path, "/")
 
-	var pathParams map[string]string
-	var starMatchInfo *matchInfo
+	mi := &matchInfo{}
+
 	for _, segment := range segments {
-		child, paramChild, found := root.childOf(segment)
-		if !found {
-			if starMatchInfo != nil {
-				return starMatchInfo, true
+		var child *node
+		child, ok = root.childOf(segment)
+		if !ok {
+			if root.typ == nodeTypeAny {
+				mi.n = root
+				return mi, true
 			}
 			return nil, false
 		}
 
-		// 命中了路径参数
-		if paramChild {
-			if pathParams == nil {
-				pathParams = make(map[string]string)
-			}
-			// path是 :id这种形式，需要把:去掉
-			pathParams[child.path[1:]] = segment
-			// 当存在正则表达式时，校验数值是否满足正则表达式
-			if child.regexpPath != "" {
-				re := regexp.MustCompile(child.regexpPath)
-				match := re.FindStringSubmatch(segment)
-				if match == nil {
-					return nil, false
-				}
-			}
+		if child.paramName != "" {
+			mi.addValue(child.paramName, segment)
 		}
 		root = child
-		if child.path == "*" {
-			starMatchInfo = &matchInfo{
-				n:          child,
-				pathParams: pathParams,
-			}
-
-		}
 	}
-	// 代表有节点，且节点有注册handler，写true则不一定有
-	//return root, root.handleFunc != nil
-	return &matchInfo{
-		n:          root,
-		pathParams: pathParams,
-	}, true
+
+	mi.n = root
+	return mi, true
 }
 
 type matchInfo struct {
@@ -237,50 +210,82 @@ type matchInfo struct {
 	pathParams map[string]string
 }
 
-func listSegments(path string) []string {
-	// 使用栈校验是否存在不完整的括号信息
-	var stack []rune
-	// 存放正则表达式
-	var regexpPath []rune
+// parseParam 用于解析判定是不是正则表达式
+// 第一个返回是参数名字
+// 第二个返回值是正则表达式
+// 第三个返回值为 true 则说明是正则路由
+func (n *node) parseParam(path string) (string, string, bool) {
+	// 去除:
+	path = path[1:]
+	segments := strings.SplitN(path, "(", 2)
 
-	segments := []string{""}
-	segmentIndex := 0
-	for _, character := range path {
-		stackLength := len(stack)
-		if character == '/' {
-			if stackLength == 0 {
-				segmentIndex++
-				segments = append(segments, "")
-				_, err := regexp.Compile(string(regexpPath))
-				if err != nil {
-					panic("web: 正则表达式不合法")
-				}
-				regexpPath = []rune{}
-			}
-			if stackLength == 1 {
-				regexpPath = append(regexpPath, character)
-				segments[segmentIndex] += string(character)
-			}
-
-		} else {
-			segments[segmentIndex] += string(character)
+	if len(segments) == 2 {
+		expr := segments[1]
+		if strings.HasSuffix(expr, ")") {
+			return segments[0], expr[:len(expr)-1], true
 		}
-
-		if character == '(' {
-			stack = append(stack, character)
-		}
-		if character == ')' {
-			if stackLength == 0 || stack[stackLength-1] != '(' {
-				panic("web: 存在不完整的括号信息")
-			}
-			stack = stack[:len(stack)-1]
-		}
-
 	}
+	return path, "", false
+}
 
-	if len(stack) != 0 {
-		panic("web：存在不完整的括号信息")
+// 创建子参数节点
+func (n *node) childOrCreateParam(path string, paramName string) *node {
+	if n.regChild != nil {
+		panic(fmt.Sprintf("web: 非法路由，已有正则路由。不允许同时注册正则路由和参数路由 [%s]", path))
 	}
+	if n.starChild != nil {
+		panic(fmt.Sprintf("web: 非法路由，已有通配符路由。不允许同时注册通配符路由和参数路由 [%s]", path))
+	}
+	if n.paramChild != nil {
+		if n.paramChild.path != path {
+			panic(fmt.Sprintf("web: 路由冲突，参数路由冲突，已有 %s，新注册 %s", n.paramChild.path, path))
+		}
+	} else {
+		n.paramChild = &node{path: path, paramName: paramName, typ: nodeTypeParam}
+	}
+	return n.paramChild
+}
 
-	return segments
+// 创建正则节点
+func (n *node) childOrCreateReg(path string, expr string, paramName string) *node {
+	if n.starChild != nil {
+		panic(fmt.Sprintf("web: 非法路由，已有通配符路由。不允许同时注册通配符路由和正则路由 [%s]", path))
+	}
+	if n.paramChild != nil {
+		panic(fmt.Sprintf("web: 非法路由，已有路径参数路由，不允许同时注册正则路由和参数路由 [%s]", path))
+	}
+	if n.regChild != nil {
+		if n.regChild.regExpr.String() != expr || n.paramName != paramName {
+			panic(fmt.Sprintf("web: 路由冲突，正则路由冲突，已有 %s，新注册 %s", n.regChild.path, path))
+		}
+	} else {
+		regExpr, err := regexp.Compile(expr)
+		if err != nil {
+			panic(fmt.Errorf("web: 正则表达式错误 %w", err))
+		}
+		n.regChild = &node{path: path, paramName: paramName, regExpr: regExpr, typ: nodeTypeReg}
+	}
+	return n.regChild
+}
+
+// childOfNonStatic 从非静态匹配的子节点里面查找
+func (n *node) childOfNonStatic(path string) (*node, bool) {
+	if n.regChild != nil {
+		if n.regChild.regExpr.Match([]byte(path)) {
+			return n.regChild, true
+		}
+	}
+	if n.paramChild != nil {
+		return n.paramChild, true
+	}
+	return n.starChild, n.starChild != nil
+}
+
+// 添加节点值
+func (m *matchInfo) addValue(key string, value string) {
+	if m.pathParams == nil {
+		// 大多数情况下，参数路径只有一段
+		m.pathParams = map[string]string{key: value}
+	}
+	m.pathParams[key] = value
 }
