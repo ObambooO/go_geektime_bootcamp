@@ -32,6 +32,16 @@ func TestServer(t *testing.T) {
 		ctx.Resp.Write([]byte("hello, order *"))
 	})
 
+	h.Post("/values/:id", func(ctx *Context) {
+		id, err := ctx.PathValue("id").AsInt64()
+		if err != nil {
+			ctx.Resp.WriteHeader(422)
+			ctx.Resp.Write([]byte("id 输入不对"))
+			return
+		}
+		ctx.Resp.Write([]byte(fmt.Sprintf("id: %d", id)))
+	})
+
 	// 注册多个不需要去管，让用户自己去处理
 	//h.AddRoute1(http.MethodGet, "/user1", func(ctx Context) {
 	//	fmt.Println("我是第一个方法")
