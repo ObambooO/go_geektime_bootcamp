@@ -55,3 +55,16 @@ func TestServer(t *testing.T) {
 	//	http.ListenAndServe(":8080", h)
 	//}()
 }
+
+// 不需要提供，让他们自己装饰
+// 线程安全的
+//type SafeContext struct {
+//	Context
+//	mutex sync.RWMutex
+//}
+//
+//func (c *SafeContext) RespJSONOK() error {
+//	c.mutex.Lock()
+//	defer c.mutex.Unlock()
+//	return c.Context.RespJSONOK(http.StatusOK, val)
+//}
