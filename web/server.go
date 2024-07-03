@@ -37,6 +37,8 @@ type HttpServer struct {
 	// addr string // 创建的时候传递，而不是在Start的时候进行传递
 
 	Router
+
+	middlewares []Middleware
 }
 
 func NewHttpServer() *HttpServer {
@@ -85,8 +87,17 @@ func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request
 		Req:  request,
 		Resp: writer,
 	}
-	// 查找路由，并且执行命中的业务逻辑
-	h.serve(ctx)
+	// 最后一个是这个
+	root := h.serve
+
+	// 然后这里利用最后一个不断往前回溯组装链条
+	// 从后往前
+	// 把后一个作为前一个的next构造好链条
+	for i := len(h.middlewares) - 1; i >= 0; i-- {
+		root = h.middlewares[i](root)
+	}
+	// 这里执行的时候，就是从前往后了
+	root(ctx)
 }
 
 func (h *HttpServer) serve(ctx *Context) {
@@ -101,6 +112,7 @@ func (h *HttpServer) serve(ctx *Context) {
 	}
 
 	ctx.PathParams = info.pathParams
+	ctx.MatchedRoute = info.n.path
 	// 命中的话，处理业务逻辑返回
 	info.n.handleFunc(ctx)
 }
