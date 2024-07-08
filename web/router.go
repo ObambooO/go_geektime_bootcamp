@@ -44,6 +44,7 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 			panic("web: 路由冲突[/]")
 		}
 		root.handleFunc = handleFunc
+		root.route = "/"
 		return
 	}
 
@@ -67,6 +68,7 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 		panic(fmt.Sprintf("web: 路由冲突[%s]", path))
 	}
 	root.handleFunc = handleFunc
+	root.route = path
 }
 
 // 目的，为了通配符的匹配
@@ -87,7 +89,9 @@ type node struct {
 	// children 子节点
 	children map[string]*node
 	// path 节点路径
-	path string
+	path  string
+	route string
+
 	// handleFunc 处理函数
 	handleFunc HandleFunc
 

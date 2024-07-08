@@ -21,7 +21,7 @@ func (m MiddlewareBuilder) Build() web.Middleware {
 			// defer的原因，因为下面可能会panic
 			defer func() {
 				l := accessLog{
-					Host:       ctx.Req.URL.Host,
+					Host:       ctx.Req.Host,
 					Route:      ctx.MatchedRoute,
 					HTTPMethod: ctx.Req.Method,
 					Path:       ctx.Req.URL.Path,

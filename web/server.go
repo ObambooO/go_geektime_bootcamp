@@ -33,6 +33,8 @@ type Server interface {
 //	HttpServer
 //}
 
+type HTTPServerOption func(server *HttpServer)
+
 type HttpServer struct {
 	// addr string // 创建的时候传递，而不是在Start的时候进行传递
 
@@ -41,9 +43,19 @@ type HttpServer struct {
 	middlewares []Middleware
 }
 
-func NewHttpServer() *HttpServer {
-	return &HttpServer{
+func NewHttpServer(opts ...HTTPServerOption) *HttpServer {
+	res := &HttpServer{
 		Router: newRouter(),
+	}
+	for _, opt := range opts {
+		opt(res)
+	}
+	return res
+}
+
+func ServerWithMiddleware(middlewares ...Middleware) HTTPServerOption {
+	return func(server *HttpServer) {
+		server.middlewares = middlewares
 	}
 }
 
@@ -112,7 +124,7 @@ func (h *HttpServer) serve(ctx *Context) {
 	}
 
 	ctx.PathParams = info.pathParams
-	ctx.MatchedRoute = info.n.path
+	ctx.MatchedRoute = info.n.route
 	// 命中的话，处理业务逻辑返回
 	info.n.handleFunc(ctx)
 }
