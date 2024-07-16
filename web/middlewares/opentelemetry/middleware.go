@@ -26,7 +26,7 @@ func (m MiddlewareBuilder) Build() web.Middleware {
 			// 尝试和客户端的trace结合
 			reqCtx = otel.GetTextMapPropagator().Extract(reqCtx, propagation.HeaderCarrier(ctx.Req.Header))
 
-			_, span := m.Tracer.Start(reqCtx, "unknown")
+			reqCtx, span := m.Tracer.Start(reqCtx, "unknown")
 			defer span.End()
 
 			span.SetAttributes(attribute.String("http.method", ctx.Req.Method))
@@ -36,10 +36,17 @@ func (m MiddlewareBuilder) Build() web.Middleware {
 
 			// 你这里还可以继续加
 
+			// ctx是私有的，需要传递给下一个
+			// :性能会比较差，但逼不得已
+			ctx.Req = ctx.Req.WithContext(reqCtx)
+
 			// 直接调用下一步
 			next(ctx)
 			// 这个是只有执行完next才可能有值
 			span.SetName(ctx.MatchedRoute)
+
+			// 把响应码加上去
+			span.SetAttributes(attribute.Int("http.status", ctx.RespStatusCode))
 		}
 	}
 }

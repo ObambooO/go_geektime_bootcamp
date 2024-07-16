@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 )
@@ -41,11 +42,16 @@ type HttpServer struct {
 	Router
 
 	middlewares []Middleware
+
+	log func(msg string, arg ...any)
 }
 
 func NewHttpServer(opts ...HTTPServerOption) *HttpServer {
 	res := &HttpServer{
 		Router: newRouter(),
+		log: func(msg string, arg ...any) {
+			fmt.Printf(msg, arg...)
+		},
 	}
 	for _, opt := range opts {
 		opt(res)
@@ -109,7 +115,28 @@ func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request
 		root = h.middlewares[i](root)
 	}
 	// 这里执行的时候，就是从前往后了
+
+	// 这里，最后一个步骤，把RespData 和 RespStatusCode 刷新到响应里面
+	var m Middleware = func(next HandleFunc) HandleFunc {
+		return func(ctx *Context) {
+			// 就设置好了RespData 和 RespStatusCode
+			next(ctx)
+			h.flashResp(ctx)
+		}
+	}
+	root = m(root)
+
 	root(ctx)
+}
+
+func (h *HttpServer) flashResp(ctx *Context) {
+	if ctx.RespStatusCode != 0 {
+		ctx.Resp.WriteHeader(ctx.RespStatusCode)
+	}
+	n, err := ctx.Resp.Write(ctx.RespData)
+	if err != nil || n != len(ctx.RespData) {
+		h.log("写入响应失败 %v", err)
+	}
 }
 
 func (h *HttpServer) serve(ctx *Context) {
@@ -118,8 +145,7 @@ func (h *HttpServer) serve(ctx *Context) {
 
 	if !ok || info.n.handleFunc == nil {
 		// 路由没有命中
-		ctx.Resp.WriteHeader(404)
-		_, _ = ctx.Resp.Write([]byte("not found"))
+		ctx.RespStatusCode = 404
 		return
 	}
 
