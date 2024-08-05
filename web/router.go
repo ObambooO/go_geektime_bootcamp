@@ -14,12 +14,12 @@ type Router struct {
 
 func newRouter() Router {
 	return Router{
-		trees: make(map[string]*node),
+		trees: map[string]*node{},
 	}
 }
 
 // addRoute path必须以/开头，不能以/结尾，中间也不能有连续的//
-func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
+func (r *Router) addRoute(method, path string, handleFunc HandleFunc, middlewares ...Middleware) {
 	if path == "" {
 		panic("web: 路由是空字符串")
 	}
@@ -45,6 +45,7 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 		}
 		root.handleFunc = handleFunc
 		root.route = "/"
+		root.middleware = middlewares
 		return
 	}
 
@@ -69,6 +70,7 @@ func (r *Router) addRoute(method, path string, handleFunc HandleFunc) {
 	}
 	root.handleFunc = handleFunc
 	root.route = path
+	root.middleware = middlewares
 }
 
 // 目的，为了通配符的匹配
@@ -107,6 +109,9 @@ type node struct {
 	regChild *node
 	regExpr  *regexp.Regexp
 	typ      nodeType
+
+	// 注册在该节点上的middleware
+	middleware []Middleware
 }
 
 // childOrCreate 返回segment对应的子节点，第一个值返回正确的子节点，第二个
@@ -206,12 +211,37 @@ func (r *Router) findRoute(method string, path string) (*matchInfo, bool) {
 	}
 
 	mi.n = root
+	mi.middleware = r.findMiddlewares(root, segments)
 	return mi, true
+}
+
+func (r *Router) findMiddlewares(root *node, segments []string) []Middleware {
+	queue := []*node{root}
+	res := make([]Middleware, 0, 16)
+	for i := 0; i < len(segments); i++ {
+		segment := segments[i]
+		var children []*node
+		for _, cur := range queue {
+			if len(cur.middleware) > 0 {
+				res = append(res, cur.middleware...)
+			}
+			children = append(children, cur.childrenOf(segment)...)
+		}
+		queue = children
+	}
+
+	for _, cur := range queue {
+		if len(cur.middleware) > 0 {
+			res = append(res, cur.middleware...)
+		}
+	}
+	return res
 }
 
 type matchInfo struct {
 	n          *node
 	pathParams map[string]string
+	middleware []Middleware
 }
 
 // parseParam 用于解析判定是不是正则表达式
@@ -283,6 +313,25 @@ func (n *node) childOfNonStatic(path string) (*node, bool) {
 		return n.paramChild, true
 	}
 	return n.starChild, n.starChild != nil
+}
+
+func (n *node) childrenOf(path string) []*node {
+	res := make([]*node, 0, 4)
+	var static *node
+	if n.children != nil {
+		static = n.children[path]
+	}
+
+	if n.starChild != nil {
+		res = append(res, n.starChild)
+	}
+	if n.paramChild != nil {
+		res = append(res, n.paramChild)
+	}
+	if static != nil {
+		res = append(res, static)
+	}
+	return res
 }
 
 // 添加节点值

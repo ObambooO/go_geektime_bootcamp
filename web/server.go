@@ -24,7 +24,7 @@ type Server interface {
 	 * path是路由
 	 * handleFunc是业务逻辑
 	 */
-	//addRoute(method string, path string, handleFunc HandleFunc)
+	addRoute(method string, path string, handleFunc HandleFunc, mdls ...Middleware)
 
 	// AddRoute1 注册多个路由
 	//AddRoute1(method string, path string, handleFunc ...HandleFunc)
@@ -44,6 +44,20 @@ type HttpServer struct {
 	middlewares []Middleware
 
 	log func(msg string, arg ...any)
+}
+
+func (s *HttpServer) Use(middlewares ...Middleware) {
+	if s.middlewares == nil {
+		s.middlewares = middlewares
+		return
+	}
+	s.middlewares = append(s.middlewares, middlewares...)
+}
+
+// UserV1 会执行路由匹配，只匹配上了的middlewares才会生效
+// 这个只需要稍微改造下路由树就可以实现
+func (s *HttpServer) UserV1(method string, path string, middlewares ...Middleware) {
+	s.addRoute(method, path, nil, middlewares...)
 }
 
 func NewHttpServer(opts ...HTTPServerOption) *HttpServer {

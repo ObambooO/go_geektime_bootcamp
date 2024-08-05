@@ -22,6 +22,9 @@ type Context struct {
 
 	MatchedRoute string
 	//cookieSamSite http.SameSite
+
+	// 缓存的数据
+	cacheQueryValues url.Values
 }
 
 func (c *Context) SetCookie(cookie *http.Cookie) {
