@@ -25,6 +25,8 @@ type Context struct {
 
 	// 缓存的数据
 	cacheQueryValues url.Values
+
+	tblEngine TemplateEngine
 }
 
 func (c *Context) SetCookie(cookie *http.Cookie) {
@@ -160,4 +162,16 @@ func (s StringValue) AsInt64() (int64, error) {
 		return 0, s.err
 	}
 	return strconv.ParseInt(s.val, 10, 64)
+}
+
+func (c *Context) Render(tblName string, data any) error {
+	var err error
+	c.RespData, err = c.tblEngine.Render(c.Req.Context(), tblName, data)
+
+	if err != nil {
+		c.RespStatusCode = http.StatusInternalServerError
+		return err
+	}
+	c.RespStatusCode = http.StatusOK
+	return nil
 }
